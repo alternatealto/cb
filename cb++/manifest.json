@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Cb++",
+  "version": "1.0.1",
+  "description": "Cb++ customizes ChatBlink with local controls: ignore members and hide their messages, enable true dark mode, hide ads or the online-member list, and manage your own settings from the extension popup.",
+  "permissions": ["storage"],
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Cb++",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatblink.com/*",
+        "https://www.chatblink.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "chatblink-ignore@local-extension",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    },
+    "gecko_android": {
+      "id": "chatblink-ignore@local-extension"
+    }
+  }
+}

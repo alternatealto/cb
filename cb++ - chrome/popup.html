@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cb++</title>
+    <link rel="stylesheet" href="popup.css">
+    <script src="storage.js" defer></script>
+    <script src="popup.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Cb++</h1>
+        <p id="summary" role="status">Loading ignored members…</p>
+      </header>
+      <section class="setting-group" aria-label="Display settings">
+        <label class="setting">
+          <span>True Dark Mode</span>
+          <input id="solid-black" type="checkbox" role="switch" aria-label="True Dark Mode" disabled>
+        </label>
+        <label class="setting">
+          <span>Hide Ads</span>
+          <input id="hide-ads" type="checkbox" role="switch" aria-label="Hide Ads" disabled>
+        </label>
+        <label class="setting">
+          <span>Hide Online members</span>
+          <input id="hide-members-online" type="checkbox" role="switch" aria-label="Hide Online members" disabled>
+        </label>
+      </section>
+      <p id="error" role="alert" hidden></p>
+      <button id="reset" type="button" disabled>Reset all ignored members</button>
+    </main>
+  </body>
+</html>
