@@ -1,14 +1,19 @@
 (() => {
   const STORAGE_KEY = "chatblinkIgnoredNames";
   const BUTTON_ATTRIBUTE = "data-chatblink-ignore-button";
+  const ICON_ONLY_ATTRIBUTE = "data-chatblink-icon-only";
   const HIDDEN_ATTRIBUTE = "data-chatblink-ignored-message";
   const PREVIOUS_HIDDEN_ATTRIBUTE = "data-chatblink-previous-hidden";
-  const ICON_ONLY_ATTRIBUTE = "data-chatblink-icon-only";
+  const MEMBER_ROW_SELECTOR = "#online-members [data-member-row]";
+  const MESSAGE_SELECTOR = "li.message[data-name]";
+  const MEMBERS_ONLINE_LINK_SELECTOR = 'a[title="Members Online"]';
   const BLACK_BACKGROUND_KEY = "chatblinkSolidBlackBackgrounds";
   const HIDE_ADS_KEY = "chatblinkHideAds";
   const HIDE_MEMBERS_ONLINE_KEY = "chatblinkHideMembersOnline";
   const ignoredNames = new Set();
   let updateQueued = false;
+  const pendingMutationNodes = new Set();
+  let mutationUpdateQueued = false;
 
   const normalize = (value) => value.normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
 
@@ -102,50 +107,36 @@
 
   function addMessageIgnoreButton(message) {
     const name = message.dataset.name?.replace(/\s+/g, " ").trim();
-    if (!name) return;
-
-    const existingButton = message.querySelector(`[${BUTTON_ATTRIBUTE}]`);
-    if (existingButton) {
-      updateButton(existingButton, name);
-      return;
-    }
-
-    const button = createIgnoreButton(name, true);
     const replyButton = message.querySelector(".btn-container .btn-reply");
-    if (replyButton) {
-      replyButton.insertAdjacentElement("afterend", button);
+    const existingButton = message.querySelector(`[${BUTTON_ATTRIBUTE}]`);
+    if (!name || !replyButton) {
+      if (existingButton?.hasAttribute(ICON_ONLY_ATTRIBUTE)) existingButton.remove();
       return;
     }
 
-    const content = message.querySelector(".msg-smiles")?.parentElement;
-    if (!content) return;
-
-    let actions = content.querySelector(".btn-container");
-    if (!actions) {
-      actions = document.createElement("div");
-      actions.className = "btn-container relative mt-1 flex justify-end gap-1 overflow-visible";
-      content.append(actions);
+    const button = existingButton || createIgnoreButton(name, true);
+    button.setAttribute(ICON_ONLY_ATTRIBUTE, "");
+    updateButton(button, name);
+    if (replyButton.nextElementSibling !== button) {
+      replyButton.insertAdjacentElement("afterend", button);
     }
-    actions.append(button);
   }
 
-  function restoreMessage(message) {
-    message.hidden = message.getAttribute(PREVIOUS_HIDDEN_ATTRIBUTE) === "true";
-    message.removeAttribute(HIDDEN_ATTRIBUTE);
-    message.removeAttribute(PREVIOUS_HIDDEN_ATTRIBUTE);
+  function applyIgnoredMessage(message) {
+    const ignored = ignoredNames.has(normalize(message.dataset.name || ""));
+    if (ignored && !message.hasAttribute(HIDDEN_ATTRIBUTE)) {
+      message.setAttribute(PREVIOUS_HIDDEN_ATTRIBUTE, String(message.hidden));
+      message.setAttribute(HIDDEN_ATTRIBUTE, "");
+      message.hidden = true;
+    } else if (!ignored && message.hasAttribute(HIDDEN_ATTRIBUTE)) {
+      message.hidden = message.getAttribute(PREVIOUS_HIDDEN_ATTRIBUTE) === "true";
+      message.removeAttribute(HIDDEN_ATTRIBUTE);
+      message.removeAttribute(PREVIOUS_HIDDEN_ATTRIBUTE);
+    }
   }
 
   function applyIgnoredMessages() {
-    document.querySelectorAll("li.message[data-name]").forEach((message) => {
-      const ignored = ignoredNames.has(normalize(message.dataset.name || ""));
-      if (ignored && !message.hasAttribute(HIDDEN_ATTRIBUTE)) {
-        message.setAttribute(PREVIOUS_HIDDEN_ATTRIBUTE, String(message.hidden));
-        message.setAttribute(HIDDEN_ATTRIBUTE, "");
-        message.hidden = true;
-      } else if (!ignored && message.hasAttribute(HIDDEN_ATTRIBUTE)) {
-        restoreMessage(message);
-      }
-    });
+    document.querySelectorAll(MESSAGE_SELECTOR).forEach(applyIgnoredMessage);
   }
 
   function applyDisplaySettings(settings) {
@@ -157,17 +148,21 @@
 
   function updateMembersOnlineCards() {
     const shouldHide = document.documentElement.hasAttribute("data-chatblink-hide-members-online");
-    document.querySelectorAll('a[title="Members Online"]').forEach((link) => {
-      const card = link.closest(".rounded-xl");
-      if (card) card.toggleAttribute("data-chatblink-members-online-card", shouldHide);
+    document.querySelectorAll(MEMBERS_ONLINE_LINK_SELECTOR).forEach((link) => {
+      updateMembersOnlineCard(link, shouldHide);
     });
+  }
+
+  function updateMembersOnlineCard(link, shouldHide) {
+    const card = link.closest(".rounded-xl");
+    if (card) card.toggleAttribute("data-chatblink-members-online-card", shouldHide);
   }
 
   function updatePage() {
     updateQueued = false;
     updateMembersOnlineCards();
-    document.querySelectorAll("#online-members [data-member-row]").forEach(addIgnoreButton);
-    document.querySelectorAll("li.message[data-name]").forEach(addMessageIgnoreButton);
+    document.querySelectorAll(MEMBER_ROW_SELECTOR).forEach(addIgnoreButton);
+    document.querySelectorAll(MESSAGE_SELECTOR).forEach(addMessageIgnoreButton);
     applyIgnoredMessages();
   }
 
@@ -175,6 +170,80 @@
     if (updateQueued) return;
     updateQueued = true;
     requestAnimationFrame(updatePage);
+  }
+
+  function processMutationNode(node) {
+    const root = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    if (!root || !document.body.contains(root)) return;
+
+    const memberRow = root.matches(MEMBER_ROW_SELECTOR) ? root : root.closest(MEMBER_ROW_SELECTOR);
+    if (memberRow) addIgnoreButton(memberRow);
+    root.querySelectorAll(MEMBER_ROW_SELECTOR).forEach(addIgnoreButton);
+
+    const message = root.matches(MESSAGE_SELECTOR) ? root : root.closest(MESSAGE_SELECTOR);
+    if (message) {
+      addMessageIgnoreButton(message);
+      applyIgnoredMessage(message);
+    }
+    root.querySelectorAll(MESSAGE_SELECTOR).forEach((addedMessage) => {
+      addMessageIgnoreButton(addedMessage);
+      applyIgnoredMessage(addedMessage);
+    });
+
+    const onlineLink = root.matches(MEMBERS_ONLINE_LINK_SELECTOR)
+      ? root
+      : root.closest(MEMBERS_ONLINE_LINK_SELECTOR);
+    const shouldHideMembersOnline = document.documentElement.hasAttribute("data-chatblink-hide-members-online");
+    if (onlineLink) updateMembersOnlineCard(onlineLink, shouldHideMembersOnline);
+    root.querySelectorAll(MEMBERS_ONLINE_LINK_SELECTOR).forEach((link) => {
+      updateMembersOnlineCard(link, shouldHideMembersOnline);
+    });
+  }
+
+  function queueMutationUpdates(records) {
+    for (const record of records) {
+      if (record.type === "childList") {
+        for (const node of record.addedNodes) pendingMutationNodes.add(node);
+
+        const target = record.target.nodeType === Node.ELEMENT_NODE
+          ? record.target
+          : record.target.parentElement;
+        const memberRow = target?.closest(MEMBER_ROW_SELECTOR);
+        const message = target?.closest(MESSAGE_SELECTOR);
+        if (memberRow) pendingMutationNodes.add(memberRow);
+        if (message) pendingMutationNodes.add(message);
+        continue;
+      }
+
+      const target = record.target;
+      if (
+        (record.attributeName === "class" && target.matches("li.message, [data-member-row]")) ||
+        (record.attributeName === "data-member-row" && target.matches(MEMBER_ROW_SELECTOR)) ||
+        (record.attributeName === "data-name" && target.matches("li.message")) ||
+        (
+          record.attributeName === "title" &&
+          target.matches("a") &&
+          (target.matches(MEMBERS_ONLINE_LINK_SELECTOR) || record.oldValue === "Members Online")
+        )
+      ) {
+        pendingMutationNodes.add(target);
+      }
+    }
+
+    if (pendingMutationNodes.size === 0 || mutationUpdateQueued) return;
+    mutationUpdateQueued = true;
+    requestAnimationFrame(() => {
+      mutationUpdateQueued = false;
+      const nodes = [...pendingMutationNodes];
+      pendingMutationNodes.clear();
+      const pendingRoots = new Set(nodes);
+      nodes.forEach((node) => {
+        for (let ancestor = node.parentElement; ancestor; ancestor = ancestor.parentElement) {
+          if (pendingRoots.has(ancestor)) return;
+        }
+        processMutationNode(node);
+      });
+    });
   }
 
   async function initialize() {
@@ -203,13 +272,13 @@
     `;
     document.head.append(style);
 
-    new MutationObserver(queueUpdate).observe(document.body, {
+    new MutationObserver(queueMutationUpdates).observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["class", "hidden", "style"]
+      attributeOldValue: true,
+      attributeFilter: ["class", "data-member-row", "data-name", "title"]
     });
-    updatePage();
 
     try {
       const stored = await chatblinkStorage.get([

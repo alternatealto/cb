@@ -5,8 +5,7 @@ Cb++ adds client-side controls and display options to ChatBlink.
 ## Features
 
 - Add **Ignore** beside members in a room's online-member list.
-- Add a compact eye/eye-slash control beside chat message actions to hide or
-  show that sender's messages.
+- Add a compact ignore control beside each chat message's reply button.
 - Save ignored members in Firefox extension storage. Ignoring only hides their
   messages in your browser.
 - The add-on stores settings locally and does not collect or transmit data.

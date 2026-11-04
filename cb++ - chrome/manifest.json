@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Cb++",
-  "version": "1.0.0",
-  "description": "Add member ignore controls and display settings to ChatBlink.",
+  "version": "1.0.2",
+  "description": "Cb++ customizes ChatBlink with local controls: ignore members and hide their messages, enable true dark mode, hide ads or the online-member list, and manage your own settings from the extension popup.",
   "permissions": ["storage"],
   "icons": {
     "48": "icons/icon-48.png",
